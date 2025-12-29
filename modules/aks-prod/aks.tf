@@ -36,8 +36,13 @@ resource "azurerm_kubernetes_cluster" "prod_aks" {
   dns_prefix          = local.cluster_name
   kubernetes_version  = var.aks_version
 
-  # Enable private cluster
+  # Public cluster with nodes in private subnets
+  # API server has public IP but nodes run in private subnets for security
   private_cluster_enabled = false
+
+  # API server authorized IP ranges - allow access from anywhere (0.0.0.0/0)
+  # This makes the cluster API server accessible from the internet
+  api_server_authorized_ip_ranges = ["0.0.0.0/0"]
 
   # Network configuration
   network_profile {
@@ -46,6 +51,8 @@ resource "azurerm_kubernetes_cluster" "prod_aks" {
     service_cidr       = cidrsubnet(var.network_cidr, 4, 15) # Use a /20 from the VNet
     dns_service_ip     = cidrhost(cidrsubnet(var.network_cidr, 4, 15), 10)
     docker_bridge_cidr = "172.17.0.1/16"
+    # Load balancer will use public subnets for internet-facing services
+    load_balancer_sku = "standard"
   }
 
   # Default node pool (will be removed after custom pool is created)
@@ -65,17 +72,11 @@ resource "azurerm_kubernetes_cluster" "prod_aks" {
     type = "SystemAssigned"
   }
 
-  # Role-based access control
+  # Role-based access control (without Azure AD for simplicity)
   role_based_access_control_enabled = true
 
-  # Azure Active Directory integration
-  # Note: azure_rbac_enabled is set to false to allow Terraform to use kube_config credentials
-  # Azure AD is still enabled (managed = true) for user authentication via kubectl
-  azure_active_directory_role_based_access_control {
-    managed                = true
-    azure_rbac_enabled     = false
-    admin_group_object_ids = var.admin_users
-  }
+  # Note: Azure AD is disabled to simplify authentication
+  # Use kube_config credentials directly without kubelogin
 
   # Note: Addons are now managed separately or have been deprecated
   # http_application_routing, kube_dashboard, and oms_agent are no longer part of addon_profile
