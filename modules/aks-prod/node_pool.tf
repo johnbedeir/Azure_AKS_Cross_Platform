@@ -26,16 +26,16 @@ resource "azurerm_kubernetes_cluster_node_pool" "prod" {
   node_labels = {
     "cluster-autoscaler-enabled" = "true"
     "cluster-autoscaler-owned"   = azurerm_kubernetes_cluster.prod_aks.name
-    "budget"                      = var.proc_budget
-    "purpose"                     = "blue-green-migration"
+    "budget"                     = var.proc_budget
+    "purpose"                    = "blue-green-migration"
   }
 
   # Node taints (optional)
   # node_taints = []
 
-  # Upgrade settings
+  # Upgrade settings - minimum surge to avoid quota issues
   upgrade_settings {
-    max_surge = "33%"
+    max_surge = "1"
   }
 
   depends_on = [
