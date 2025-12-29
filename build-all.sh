@@ -6,7 +6,7 @@
 ###                                                                                              ###
 ###  This script builds all infrastructure in the correct order:                                ###
 ###  1. Terraform Initialization                                                                 ###
-###  2. Secrets (Azure Key Vault with Datadog API keys)                                         ###
+###  2. Secrets (Azure Key Vault)                                                               ###
 ###  3. VPC and Networking (Virtual Network, Subnets, NAT Gateway)                              ###
 ###  4. GitOps Cluster (AKS GitOps cluster with ArgoCD)                                         ###
 ###  5. Production Cluster (AKS Production cluster)                                             ###
@@ -128,16 +128,12 @@ print_step "Step 3: Creating Azure Key Vault and secrets..."
 echo "This includes:"
 echo "  - Azure Key Vault"
 echo "  - Key Vault access policies"
-echo "  - Datadog API key secret for Production cluster"
-echo "  - Datadog API key secret for GitOps cluster"
 echo ""
 
 terraform apply -target=azurerm_resource_group.main \
                 -target=random_string.suffix \
                 -target=azurerm_key_vault.main \
                 -target=azurerm_key_vault_access_policy.current_user \
-                -target=azurerm_key_vault_secret.datadog_api_key \
-                -target=azurerm_key_vault_secret.gitops_datadog_api_key \
                 -auto-approve
 
 if [ $? -ne 0 ]; then
@@ -226,12 +222,14 @@ az aks nodepool list \
 
 echo ""
 
-# Step 5b: Get cluster credentials and deploy ArgoCD & ChartMuseum via Helm
-print_step "Step 5b: Getting cluster credentials and deploying ArgoCD & ChartMuseum via Helm..."
+# Step 5b: Get cluster credentials and deploy ArgoCD, ChartMuseum, Prometheus & Grafana via Helm
+print_step "Step 5b: Getting cluster credentials and deploying monitoring stack via Helm..."
 echo "This includes:"
 echo "  - Getting GitOps cluster credentials"
 echo "  - Installing ArgoCD via Helm"
 echo "  - Installing ChartMuseum via Helm"
+echo "  - Installing Prometheus via Helm"
+echo "  - Installing Grafana via Helm"
 echo ""
 
 # Get cluster credentials (works with or without Azure AD)
@@ -305,8 +303,144 @@ if [ $? -ne 0 ]; then
     print_warning "ChartMuseum installation had issues, but continuing..."
 fi
 
+# Install Prometheus
+print_step "Installing Prometheus via Helm..."
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts 2>/dev/null || true
+helm repo update prometheus-community
+
+# Install Prometheus without waiting to avoid hanging
+print_step "Installing Prometheus (this may take a few minutes)..."
+
+# Create admission webhook secret with self-signed certificate to prevent pod from hanging
+# This is needed even when webhooks are disabled because the operator pod tries to mount it
+print_step "Creating admission webhook secret (required even when webhooks are disabled)..."
+kubectl create namespace monitoring 2>/dev/null || true
+
+# Delete existing secret if it exists (to allow type/key changes)
+kubectl delete secret prometheus-kube-prometheus-admission -n monitoring 2>/dev/null || true
+
+# Generate self-signed certificate for the admission webhook secret
+# The operator expects keys named "cert" and "key", not "tls.crt" and "tls.key"
+TMP_CERT=$(mktemp)
+TMP_KEY=$(mktemp)
+if openssl req -x509 -newkey rsa:2048 -keyout "$TMP_KEY" -out "$TMP_CERT" -days 365 -nodes -subj "/CN=prometheus-kube-prometheus-admission" 2>/dev/null; then
+    if [ -f "$TMP_CERT" ] && [ -f "$TMP_KEY" ]; then
+        kubectl create secret generic prometheus-kube-prometheus-admission \
+            -n monitoring \
+            --from-file="$TMP_CERT" \
+            --from-file="$TMP_KEY" 2>/dev/null || true
+        rm -f "$TMP_CERT" "$TMP_KEY"
+    fi
+else
+    # Fallback: create empty secret if openssl fails
+    kubectl create secret generic prometheus-kube-prometheus-admission \
+        -n monitoring \
+        --from-literal=cert='' \
+        --from-literal=key='' \
+        --dry-run=client -o yaml | kubectl apply -f - 2>/dev/null || true
+fi
+
+helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
+    --version 58.0.0 \
+    --namespace monitoring \
+    --create-namespace \
+    --set prometheus.prometheusSpec.retention=30d \
+    --set prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.storageClassName=managed-csi \
+    --set prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.accessModes[0]=ReadWriteOnce \
+    --set prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage=50Gi \
+    --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false \
+    --set prometheus.prometheusSpec.resources.requests.cpu=200m \
+    --set prometheus.prometheusSpec.resources.requests.memory=512Mi \
+    --set prometheus.prometheusSpec.resources.limits.cpu=1000m \
+    --set prometheus.prometheusSpec.resources.limits.memory=2Gi \
+    --set prometheusOperator.admissionWebhooks.enabled=false \
+    --set prometheusOperator.admissionWebhooks.patch.enabled=false \
+    --set prometheusOperator.admissionWebhooks.certManager.enabled=false \
+    --set prometheusOperator.admissionWebhooks.cert.create=false \
+    --set alertmanager.enabled=false \
+    --set kubeStateMetrics.enabled=true \
+    --set nodeExporter.enabled=true \
+    --set prometheusOperator.resources.requests.cpu=100m \
+    --set prometheusOperator.resources.requests.memory=128Mi \
+    --set prometheusOperator.resources.limits.cpu=500m \
+    --set prometheusOperator.resources.limits.memory=512Mi \
+    --wait=false \
+    --timeout 5m
+
+# Wait for Prometheus pods to be ready (with timeout)
+print_step "Waiting for Prometheus pods to be ready..."
+for i in {1..30}; do
+    if kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=prometheus -n monitoring --timeout=60s 2>/dev/null; then
+        print_step "Prometheus pods are ready!"
+        break
+    fi
+    if [ $i -eq 30 ]; then
+        print_warning "Prometheus pods are taking longer than expected, but continuing..."
+    else
+        echo "Waiting for Prometheus pods... ($i/30)"
+        sleep 10
+    fi
+done
+
+# Patch Prometheus and Grafana services to LoadBalancer
+print_step "Configuring Prometheus and Grafana services as LoadBalancer..."
+sleep 5  # Give the services time to be created
+
+# Patch Prometheus service
+kubectl patch svc prometheus-kube-prometheus-prometheus -n monitoring -p '{"spec":{"type":"LoadBalancer","ports":[{"port":80,"targetPort":9090,"protocol":"TCP","name":"http"}]}}' 2>/dev/null || \
+kubectl patch svc prometheus-kube-prometheus-prometheus -n monitoring -p '{"spec":{"type":"LoadBalancer"}}' 2>/dev/null || \
+print_warning "Could not patch Prometheus service to LoadBalancer"
+
+# Patch Grafana service from Prometheus stack
+kubectl patch svc prometheus-grafana -n monitoring -p '{"spec":{"type":"LoadBalancer"}}' 2>/dev/null || \
+print_warning "Could not patch Grafana service to LoadBalancer"
+
+if [ $? -ne 0 ]; then
+    print_warning "Prometheus installation had issues, but continuing..."
+    print_warning "You can check the status with: kubectl get pods -n monitoring"
+fi
+
+# Install Grafana
+print_step "Installing Grafana via Helm..."
+helm repo add grafana https://grafana.github.io/helm-charts 2>/dev/null || true
+helm repo update grafana
+
+# Get Grafana admin password (or use default)
+GRAFANA_ADMIN_PASSWORD=$(openssl rand -base64 32 2>/dev/null || echo "admin")
+
+helm upgrade --install grafana grafana/grafana \
+    --version 7.3.7 \
+    --namespace monitoring \
+    --create-namespace \
+    --set adminPassword="$GRAFANA_ADMIN_PASSWORD" \
+    --set service.type=LoadBalancer \
+    --set service.port=80 \
+    --set persistence.enabled=true \
+    --set persistence.storageClassName=managed-csi \
+    --set persistence.accessModes[0]=ReadWriteOnce \
+    --set persistence.size=10Gi \
+    --set datasources."datasources\.yaml".apiVersion=1 \
+    --set datasources."datasources\.yaml".datasources[0].name=Prometheus \
+    --set datasources."datasources\.yaml".datasources[0].type=prometheus \
+    --set datasources."datasources\.yaml".datasources[0].url=http://prometheus-kube-prometheus-prometheus.monitoring.svc:9090 \
+    --set datasources."datasources\.yaml".datasources[0].isDefault=true \
+    --set datasources."datasources\.yaml".datasources[0].access=proxy \
+    --wait --timeout 10m
+
+if [ $? -ne 0 ]; then
+    print_warning "Grafana installation had issues, but continuing..."
+fi
+
 echo ""
-print_step "ArgoCD and ChartMuseum deployed successfully via Helm!"
+print_step "ArgoCD, ChartMuseum, Prometheus, and Grafana deployed successfully via Helm!"
+echo ""
+echo "Grafana admin credentials:"
+echo "  Username: admin"
+echo "  Password: $GRAFANA_ADMIN_PASSWORD"
+echo ""
+echo "To get service LoadBalancer IPs:"
+echo "  Grafana:   kubectl get svc -n monitoring grafana -o jsonpath='{.status.loadBalancer.ingress[0].ip}'"
+echo "  Prometheus: kubectl get svc -n monitoring prometheus-kube-prometheus-prometheus -o jsonpath='{.status.loadBalancer.ingress[0].ip}'"
 echo ""
 
 ####################################################################################################
@@ -319,7 +453,6 @@ echo "  - AKS Production Cluster"
 echo "  - Node Pool for Production"
 echo "  - Managed Identities"
 echo "  - Network Security Groups"
-echo "  - Datadog"
 echo "  - Cross-cluster access configuration"
 echo ""
 
