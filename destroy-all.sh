@@ -9,7 +9,7 @@
 ###  2. Production Cluster (AKS Production cluster and its components)                          ###
 ###  3. GitOps Cluster (AKS GitOps cluster and its components)                                  ###
 ###  4. VPC and Networking (Virtual Network, Subnets, NAT Gateway)                              ###
-###  5. Secrets (Azure Key Vault with Datadog API keys)                                         ###
+###  5. Secrets (Azure Key Vault)                                                               ###
 ###  6. Final Destroy (Catch any remaining resources)                                            ###
 ###  7. Cleanup Verification                                                                     ###
 ###                                                                                              ###
@@ -65,7 +65,6 @@ echo "  - AKS Production cluster and all its resources"
 echo "  - AKS GitOps cluster and all its resources"
 echo "  - Virtual Network, Subnets, NAT Gateway, Route Tables"
 echo "  - All Managed Identities and Role Assignments"
-echo "  - All Datadog secrets in Key Vault"
 echo "  - All ArgoCD configurations"
 echo ""
 echo "Subscription: $AZ_SUBSCRIPTION_NAME"
@@ -113,7 +112,6 @@ echo "  - AKS Production Cluster"
 echo "  - Node Pools for Production"
 echo "  - Managed Identities for Production"
 echo "  - Network Security Groups"
-echo "  - Datadog Helm release for Production"
 echo "  - RBAC configurations"
 echo ""
 
@@ -139,7 +137,7 @@ echo "  - AKS GitOps Cluster"
 echo "  - Node Pools for GitOps"
 echo "  - Managed Identities for GitOps"
 echo "  - Network Security Groups"
-echo "  - ArgoCD, Chartmuseum, Datadog Helm releases"
+echo "  - ArgoCD, Chartmuseum, Prometheus, Grafana Helm releases"
 echo ""
 
 terraform destroy -target=module.aks_gitops \
@@ -200,17 +198,13 @@ echo ""
 ### STEP 5: Destroy Secrets                                                                      ###
 ####################################################################################################
 
-print_step "Step 5: Destroying Azure Key Vault secrets..."
+print_step "Step 5: Destroying Azure Key Vault..."
 echo "This includes:"
-echo "  - Datadog API key secret for Production cluster"
-echo "  - Datadog API key secret for GitOps cluster"
 echo "  - Key Vault access policies"
 echo "  - Key Vault"
 echo ""
 
-terraform destroy -target=azurerm_key_vault_secret.gitops_datadog_api_key \
-                  -target=azurerm_key_vault_secret.datadog_api_key \
-                  -target=azurerm_key_vault_access_policy.current_user \
+terraform destroy -target=azurerm_key_vault_access_policy.current_user \
                   -target=azurerm_key_vault.main \
                   -target=random_string.suffix \
                   -auto-approve 2>&1 || print_warning "Key Vault and secrets may not exist or already destroyed"
