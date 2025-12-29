@@ -35,6 +35,21 @@ resource "azurerm_network_security_rule" "aks_nodes_https" {
   network_security_group_name = azurerm_network_security_group.aks_nodes.name
 }
 
+# Allow inbound HTTP from anywhere (0.0.0.0/0) for LoadBalancer services (ArgoCD, ChartMuseum)
+resource "azurerm_network_security_rule" "aks_nodes_http_public" {
+  name                        = "AllowHTTPFromInternet"
+  priority                    = 1002
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "Tcp"
+  source_port_range           = "*"
+  destination_port_range      = "80"
+  source_address_prefix       = "0.0.0.0/0"
+  destination_address_prefix  = "*"
+  resource_group_name         = var.resource_group_name
+  network_security_group_name = azurerm_network_security_group.aks_nodes.name
+}
+
 # Allow inbound HTTPS from anywhere (0.0.0.0/0) for cluster API server access
 resource "azurerm_network_security_rule" "aks_nodes_https_public" {
   name                        = "AllowHTTPSFromInternet"
@@ -53,7 +68,7 @@ resource "azurerm_network_security_rule" "aks_nodes_https_public" {
 # Allow inbound from cluster API server
 resource "azurerm_network_security_rule" "aks_nodes_cluster" {
   name                        = "AllowClusterAPI"
-  priority                    = 1001
+  priority                    = 1003
   direction                   = "Inbound"
   access                      = "Allow"
   protocol                    = "Tcp"
