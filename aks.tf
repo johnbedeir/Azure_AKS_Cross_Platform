@@ -52,9 +52,9 @@ module "aks" {
   enable_argocd_access = true
   gitops_cluster_name  = "${var.gitops_name_prefix}-${var.gitops_environment}"
 
-  # Enable optional components to match existing infrastructure
-  enable_rbac_config        = true
-  enable_datadog            = true
-  enable_cluster_autoscaler = true
+  # Enable optional components
+  enable_rbac_config        = false # Disabled - not needed for basic setup
+  enable_datadog            = false # Disabled - can enable later if needed
+  enable_cluster_autoscaler = true  # Keep enabled for auto-scaling
 }
 
