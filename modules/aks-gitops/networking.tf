@@ -22,7 +22,7 @@ resource "azurerm_network_security_group" "aks_nodes" {
 
 # Allow inbound HTTPS from VNet
 resource "azurerm_network_security_rule" "aks_nodes_https" {
-  name                        = "AllowHTTPS"
+  name                        = "AllowHTTPSFromVNet"
   priority                    = 1000
   direction                   = "Inbound"
   access                      = "Allow"
@@ -30,6 +30,21 @@ resource "azurerm_network_security_rule" "aks_nodes_https" {
   source_port_range           = "*"
   destination_port_range      = "443"
   source_address_prefix       = var.network_cidr
+  destination_address_prefix  = "*"
+  resource_group_name         = var.resource_group_name
+  network_security_group_name = azurerm_network_security_group.aks_nodes.name
+}
+
+# Allow inbound HTTPS from anywhere (0.0.0.0/0) for cluster API server access
+resource "azurerm_network_security_rule" "aks_nodes_https_public" {
+  name                        = "AllowHTTPSFromInternet"
+  priority                    = 1001
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "Tcp"
+  source_port_range           = "*"
+  destination_port_range      = "443"
+  source_address_prefix       = "0.0.0.0/0"
   destination_address_prefix  = "*"
   resource_group_name         = var.resource_group_name
   network_security_group_name = azurerm_network_security_group.aks_nodes.name
