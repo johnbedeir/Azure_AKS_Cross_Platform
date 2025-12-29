@@ -30,6 +30,10 @@ resource "azurerm_subnet" "private_aks_gitops" {
   resource_group_name  = azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
   address_prefixes     = [each.value.cidr]
+
+  # Note: Subnet delegation is NOT required for AKS node pools
+  # Delegation is only needed for certain advanced scenarios
+  # Default node pools cannot use delegated subnets, so we keep subnets non-delegated
 }
 
 ####################################################################################################
