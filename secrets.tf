@@ -48,29 +48,4 @@ resource "azurerm_key_vault_access_policy" "current_user" {
   ]
 }
 
-# Datadog API Key Secret for AKS Production Cluster
-resource "azurerm_key_vault_secret" "datadog_api_key" {
-  name         = var.datadog_api_secret_name
-  value        = var.datadog_api_key_value
-  key_vault_id = azurerm_key_vault.main.id
-
-  depends_on = [azurerm_key_vault_access_policy.current_user]
-
-  lifecycle {
-    ignore_changes = [value]
-  }
-}
-
-# Datadog API Key Secret for AKS GitOps Cluster
-resource "azurerm_key_vault_secret" "gitops_datadog_api_key" {
-  name         = var.gitops_datadog_api_secret_name
-  value        = var.gitops_datadog_api_key_value
-  key_vault_id = azurerm_key_vault.main.id
-
-  depends_on = [azurerm_key_vault_access_policy.current_user]
-
-  lifecycle {
-    ignore_changes = [value]
-  }
-}
 

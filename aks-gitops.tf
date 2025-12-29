@@ -46,9 +46,8 @@ module "aks_gitops" {
   # Tags
   proc_budget = var.proc_budget
 
-  # Datadog
-  datadog_api_secret_name = var.gitops_datadog_api_secret_name
-  key_vault_id            = azurerm_key_vault.main.id
+  # Key Vault (for future use if needed)
+  key_vault_id = azurerm_key_vault.main.id
   # NOTE: Secrets must be created first. They are created in secrets.tf at the root level.
 
   # Cross-cluster communication
@@ -59,7 +58,6 @@ module "aks_gitops" {
 
   # Enable GitOps-specific components
   enable_rbac_config        = false # Disabled - not needed for basic setup
-  enable_datadog            = false # Disabled - can enable later if needed
   enable_cluster_autoscaler = true  # Keep enabled for auto-scaling
   enable_chartmuseum        = false # Deployed via Helm in build script (avoids Terraform auth issues)
   enable_argocd             = false # Deployed via Helm in build script (avoids Terraform auth issues)

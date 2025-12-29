@@ -41,10 +41,8 @@ module "aks" {
   # Tags
   proc_budget = var.proc_budget
 
-  # Datadog
-  datadog_api_secret_name = var.datadog_api_secret_name
-  key_vault_id            = azurerm_key_vault.main.id
-  # NOTE: Secrets must be created first. They are created in secrets.tf at the root level.
+  # Key Vault (for future use if needed)
+  key_vault_id = azurerm_key_vault.main.id
 
   # ArgoCD GitOps access
   # Pass the actual cluster name that matches the GitOps module's var.cluster_name
@@ -54,7 +52,6 @@ module "aks" {
 
   # Enable optional components
   enable_rbac_config        = false # Disabled - not needed for basic setup
-  enable_datadog            = false # Disabled - can enable later if needed
   enable_cluster_autoscaler = true  # Keep enabled for auto-scaling
 }
 

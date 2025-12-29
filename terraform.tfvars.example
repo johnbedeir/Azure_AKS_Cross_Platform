@@ -70,11 +70,6 @@ admin_users = [
   "YOUR_AZURE_AD_OBJECT_ID_OR_UPN"
 ]
 
-# Datadog Configuration
-# TODO: Replace with your Datadog API key name and value
-datadog_api_secret_name = "datadog-api-key"                    # Name of the Datadog API key in Azure Key Vault
-datadog_api_key_value   = "YOUR_DATADOG_API_KEY_HERE"          # Datadog API key (will be stored in Key Vault)
-
 ####################################################################################################
 ### AKS GitOps Cluster Configuration
 ####################################################################################################
@@ -86,7 +81,7 @@ gitops_cluster_name = "aks-gitops-cluster" # Full GitOps cluster name
 gitops_aks_version = "1.32"  # Kubernetes version for GitOps cluster - 1.28 requires LTS support plan
 
 # GitOps Node Pool Configuration
-# Sized for ArgoCD + Chartmuseum + supporting services (Metrics Server, Autoscaler, Datadog)
+# Sized for ArgoCD + Chartmuseum + Prometheus + Grafana + supporting services (Metrics Server, Autoscaler)
 # Standard_D2s_v3: 2 vCPU, 8GB RAM - sufficient for GitOps workloads
 gitops_node_pool_vm_size     = ["Standard_D2s_v3"] # VM sizes for GitOps cluster
 gitops_node_pool_desired_size = 2                   # Desired number of nodes (2 for HA)
@@ -100,8 +95,4 @@ gitops_admin_users = [
   "YOUR_AZURE_AD_OBJECT_ID_OR_UPN"
 ]
 
-# GitOps Datadog Configuration
-# TODO: Replace with your Datadog API key name and value
-gitops_datadog_api_secret_name = "datadog-api-key-gitops"           # Name of the Datadog API key for GitOps cluster in Azure Key Vault
-gitops_datadog_api_key_value   = "YOUR_DATADOG_API_KEY_HERE"       # Datadog API key for GitOps (will be stored in Key Vault)
 

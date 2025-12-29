@@ -129,17 +129,6 @@ variable "cluster_name" {
   type        = string
 }
 
-variable "datadog_api_secret_name" {
-  description = "The name of the Datadog API key secret in Azure Key Vault."
-  type        = string
-}
-
-variable "datadog_api_key_value" {
-  description = "The Datadog API key value (will be stored in Azure Key Vault)."
-  type        = string
-  sensitive   = true
-}
-
 # GitOps AKS Cluster Variables
 variable "gitops_name_prefix" {
   description = "Name prefix for the GitOps AKS cluster"
@@ -184,17 +173,6 @@ variable "gitops_node_pool_min_size" {
 variable "gitops_node_pool_max_size" {
   description = "Maximum size of the GitOps AKS node pool"
   type        = number
-}
-
-variable "gitops_datadog_api_secret_name" {
-  description = "The name of the Datadog API key secret for GitOps cluster in Azure Key Vault."
-  type        = string
-}
-
-variable "gitops_datadog_api_key_value" {
-  description = "The Datadog API key value for GitOps cluster (will be stored in Azure Key Vault)."
-  type        = string
-  sensitive   = true
 }
 
 # AKS Production Subnet Variables

@@ -85,11 +85,6 @@ variable "proc_budget" {
   type        = string
 }
 
-variable "datadog_api_secret_name" {
-  description = "Name of the Secret in Azure Key Vault for the Datadog API key"
-  type        = string
-}
-
 variable "key_vault_id" {
   description = "ID of the Azure Key Vault containing secrets"
   type        = string
@@ -116,12 +111,6 @@ variable "enable_rbac_config" {
 
 variable "enable_metrics_server" {
   description = "Whether to install Metrics Server via Helm"
-  type        = bool
-  default     = false
-}
-
-variable "enable_datadog" {
-  description = "Whether to install Datadog agent via Helm"
   type        = bool
   default     = false
 }
