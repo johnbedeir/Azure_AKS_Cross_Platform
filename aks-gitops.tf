@@ -58,10 +58,10 @@ module "aks_gitops" {
   target_cluster_resource_group = azurerm_resource_group.main.name
 
   # Enable GitOps-specific components
-  enable_rbac_config        = true
-  enable_datadog            = true
-  enable_cluster_autoscaler = true
-  enable_chartmuseum        = true
-  enable_argocd             = true
+  enable_rbac_config        = false # Disabled - not needed for basic setup
+  enable_datadog            = false # Disabled - can enable later if needed
+  enable_cluster_autoscaler = true  # Keep enabled for auto-scaling
+  enable_chartmuseum        = false # Deployed via Helm in build script (avoids Terraform auth issues)
+  enable_argocd             = false # Deployed via Helm in build script (avoids Terraform auth issues)
 }
 
