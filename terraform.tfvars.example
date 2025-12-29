@@ -1,0 +1,107 @@
+# Terraform Variables Configuration Example
+# Copy this file to terraform.tfvars and fill in your actual values
+# cp terraform.tfvars.example terraform.tfvars
+
+####################################################################################################
+### Azure Account & Region Configuration
+####################################################################################################
+
+# TODO: Replace with your Azure Subscription ID
+subscription_id = "YOUR_AZURE_SUBSCRIPTION_ID"
+# TODO: Replace with your Azure Tenant ID
+tenant_id       = "YOUR_AZURE_TENANT_ID"
+region          = "eastus"           # Azure region (e.g., eastus, westus2, westeurope)
+replicated_region = "westus2"        # Region for replication (can be same as region)
+
+# TODO: Replace with your availability zones (must match your selected region)
+az_primary   = "1"  # Primary availability zone (Azure uses numeric zones: 1, 2, 3)
+az_secondary = "2"  # Secondary availability zone
+
+####################################################################################################
+### VPC & Networking Configuration
+####################################################################################################
+
+vpc_cidr = "10.0.0.0/16"  # VNet CIDR block
+
+# AKS Production Subnets (2 subnets for high availability)
+private_aks_prod_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
+
+# AKS GitOps Subnets (2 subnets for high availability)
+private_aks_gitops_subnets = ["10.0.10.0/24", "10.0.11.0/24"]
+
+# Public Subnets (for NAT Gateway and Load Balancers)
+public_subnets = ["10.0.101.0/24", "10.0.102.0/24"]
+
+####################################################################################################
+### Budget Tags
+####################################################################################################
+
+networking_budget = "networking" # Budget tag for networking resources
+proc_budget       = "processing" # Budget tag for processing resources
+env_tag           = "prod"       # Environment tag (prod, dev, staging)
+name_region       = "eastus"     # Region name for resource naming (e.g., eastus, westus2)
+
+####################################################################################################
+### Resource Group
+####################################################################################################
+
+resource_group_name = "rg-aks-cross-platform"  # Azure Resource Group name
+
+####################################################################################################
+### AKS Production Cluster Configuration
+####################################################################################################
+
+name_prefix  = "aks-prod"         # Prefix for AKS production cluster
+environment  = "production"       # Environment name
+cluster_name = "aks-prod-cluster" # Full cluster name
+
+aks_version = "1.32"  # Kubernetes version (e.g., 1.32, 1.33) - 1.28 requires LTS support plan
+
+# Node Pool Configuration
+node_pool_new_vm_size     = ["Standard_D2s_v3"] # VM sizes (e.g., ["Standard_D2s_v3", "Standard_D4s_v3"])
+node_pool_new_desired_size = 2                   # Desired number of nodes
+node_pool_new_min_size     = 1                   # Minimum number of nodes
+node_pool_new_max_size     = 5                   # Maximum number of nodes
+
+# Kubernetes Access
+# TODO: Replace with your Azure AD object IDs or user principal names
+# Format: ["object-id-1", "object-id-2"] or ["user@example.com"]
+admin_users = [
+  "YOUR_AZURE_AD_OBJECT_ID_OR_UPN"
+]
+
+# Datadog Configuration
+# TODO: Replace with your Datadog API key name and value
+datadog_api_secret_name = "datadog-api-key"                    # Name of the Datadog API key in Azure Key Vault
+datadog_api_key_value   = "YOUR_DATADOG_API_KEY_HERE"          # Datadog API key (will be stored in Key Vault)
+
+####################################################################################################
+### AKS GitOps Cluster Configuration
+####################################################################################################
+
+gitops_name_prefix  = "aks-gitops"         # Prefix for GitOps cluster
+gitops_environment  = "production"          # Environment name
+gitops_cluster_name = "aks-gitops-cluster" # Full GitOps cluster name
+
+gitops_aks_version = "1.32"  # Kubernetes version for GitOps cluster - 1.28 requires LTS support plan
+
+# GitOps Node Pool Configuration
+# Sized for ArgoCD + Chartmuseum + supporting services (Metrics Server, Autoscaler, Datadog)
+# Standard_D2s_v3: 2 vCPU, 8GB RAM - sufficient for GitOps workloads
+gitops_node_pool_vm_size     = ["Standard_D2s_v3"] # VM sizes for GitOps cluster
+gitops_node_pool_desired_size = 2                   # Desired number of nodes (2 for HA)
+gitops_node_pool_min_size     = 2                   # Minimum number of nodes (2 for HA)
+gitops_node_pool_max_size     = 4                   # Maximum number of nodes (increased for scaling)
+
+# GitOps Kubernetes Access
+# TODO: Replace with your Azure AD object IDs or user principal names
+# Format: ["object-id-1", "object-id-2"] or ["user@example.com"]
+gitops_admin_users = [
+  "YOUR_AZURE_AD_OBJECT_ID_OR_UPN"
+]
+
+# GitOps Datadog Configuration
+# TODO: Replace with your Datadog API key name and value
+gitops_datadog_api_secret_name = "datadog-api-key-gitops"           # Name of the Datadog API key for GitOps cluster in Azure Key Vault
+gitops_datadog_api_key_value   = "YOUR_DATADOG_API_KEY_HERE"       # Datadog API key for GitOps (will be stored in Key Vault)
+
