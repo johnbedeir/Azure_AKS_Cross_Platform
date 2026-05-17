@@ -16,6 +16,11 @@ resource "azurerm_key_vault" "main" {
   enabled_for_template_deployment = true
   enabled_for_disk_encryption     = true
 
+  network_acls {
+    default_action = "Deny"
+    bypass         = "AzureServices"
+  }
+
   tags = {
     Budget = var.proc_budget
     Env    = var.env_tag
