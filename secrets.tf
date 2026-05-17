@@ -15,6 +15,7 @@ resource "azurerm_key_vault" "main" {
   enabled_for_deployment          = true
   enabled_for_template_deployment = true
   enabled_for_disk_encryption     = true
+  purge_protection_enabled        = true
 
   network_acls {
     default_action = "Deny"
